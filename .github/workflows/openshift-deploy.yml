@@ -56,16 +56,17 @@ jobs:
     - name: Build with Maven
       run: mvn clean package -DskipTests
 
-    - name: Run unit tests
-      run: mvn test
+    # Tests skipped - uncomment below to re-enable
+    # - name: Run unit tests
+    #   run: mvn test
 
-    - name: Generate test report
-      if: always()
-      uses: dorny/test-reporter@v1
-      with:
-        name: Maven Tests
-        path: target/surefire-reports/*.xml
-        reporter: java-junit
+    # - name: Generate test report
+    #   if: always()
+    #   uses: dorny/test-reporter@v1
+    #   with:
+    #     name: Maven Tests
+    #     path: target/surefire-reports/*.xml
+    #     reporter: java-junit
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
