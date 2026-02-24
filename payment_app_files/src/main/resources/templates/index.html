@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Processing Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .card-info {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 15px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .test-cards {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .test-cards h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .test-cards ul {
+            list-style: none;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .test-cards li {
+            margin-bottom: 5px;
+        }
+
+        .test-cards code {
+            background: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        #message {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        #message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        #message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .transaction-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .transaction-table th,
+        .transaction-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .transaction-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .transaction-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge.authorized {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .badge.captured {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge.declined {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge.refunded {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-buttons button {
+            padding: 6px 12px;
+            font-size: 13px;
+            width: auto;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        @media (max-width: 768px) {
+            .card-info {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .transaction-table {
+                font-size: 14px;
+            }
+
+            .transaction-table th,
+            .transaction-table td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💳 Payment Processing Demo</h1>
+
+        <div class="card">
+            <h2>Process Payment</h2>
+            
+            <div class="test-cards">
+                <h3>Test Mode:</h3>
+                <ul>
+                    <li>Use valid test card numbers for testing</li>
+                    <li>Contact administrator for test credentials</li>
+                </ul>
+            </div>
+
+            <div id="message"></div>
+
+            <form id="paymentForm">
+                <div class="form-group">
+                    <label for="cardNumber">Card Number</label>
+                    <input type="text" id="cardNumber" placeholder="Enter card number" required maxlength="19">
+                </div>
+
+                <div class="card-info">
+                    <div class="form-group">
+                        <label for="cardExpiry">Expiry (MM/YY)</label>
+                        <input type="text" id="cardExpiry" placeholder="12/25" required maxlength="5">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cvv">CVV</label>
+                        <input type="text" id="cvv" placeholder="123" required maxlength="4">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="amount">Amount ($)</label>
+                        <input type="number" id="amount" placeholder="100.00" step="0.01" min="0.01" required>
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn">
+                    Authorize Payment
+                </button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Transaction History</h2>
+            <div id="historyContainer">
+                <div class="empty-state">No transactions yet</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/payments';
+        let transactions = [];
+
+        // Load transaction history on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadHistory();
+            
+            // Format card number input
+            document.getElementById('cardNumber').addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\s/g, '');
+                e.target.value = value;
+            });
+
+            // Format expiry input
+            document.getElementById('cardExpiry').addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length >= 2) {
+                    value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                }
+                e.target.value = value;
+            });
+
+            // Format CVV input
+            document.getElementById('cvv').addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/\D/g, '');
+            });
+        });
+
+        // Handle form submission
+        document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Processing<span class="loading"></span>';
+
+            const data = {
+                cardNumber: document.getElementById('cardNumber').value,
+                cardExpiry: document.getElementById('cardExpiry').value,
+                cvv: document.getElementById('cvv').value,
+                amount: parseFloat(document.getElementById('amount').value)
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/authorize`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'AUTHORIZED') {
+                    showMessage('Payment authorized successfully! Transaction ID: ' + result.transactionId, 'success');
+                    document.getElementById('paymentForm').reset();
+                } else {
+                    showMessage('Payment declined: ' + result.responseMessage, 'error');
+                }
+
+                loadHistory();
+            } catch (error) {
+                showMessage('Error processing payment: ' + error.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Authorize Payment';
+            }
+        });
+
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${API_BASE}/history`);
+                transactions = await response.json();
+                renderHistory();
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('historyContainer');
+            
+            if (transactions.length === 0) {
+                container.innerHTML = '<div class="empty-state">No transactions yet</div>';
+                return;
+            }
+
+            const table = `
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+                            <th>Transaction ID</th>
+                            <th>Card</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${transactions.map(t => `
+                            <tr>
+                                <td><code>${t.transactionId.substring(0, 8)}...</code></td>
+                                <td>${t.cardNumber}</td>
+                                <td>$${t.amount.toFixed(2)}</td>
+                                <td><span class="badge ${t.status.toLowerCase()}">${t.status}</span></td>
+                                <td>${new Date(t.createdAt).toLocaleString()}</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        ${t.status === 'AUTHORIZED' ? 
+                                            `<button onclick="captureTransaction('${t.transactionId}')">Capture</button>` : ''}
+                                        ${t.status === 'CAPTURED' ? 
+                                            `<button onclick="refundTransaction('${t.transactionId}')">Refund</button>` : ''}
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = table;
+        }
+
+        async function captureTransaction(transactionId) {
+            if (!confirm('Capture this transaction?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/capture`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ transactionId })
+                });
+
+                if (response.ok) {
+                    showMessage('Transaction captured successfully!', 'success');
+                    loadHistory();
+                } else {
+                    showMessage('Failed to capture transaction', 'error');
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function refundTransaction(transactionId) {
+            if (!confirm('Refund this transaction?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/refund`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ transactionId })
+                });
+
+                if (response.ok) {
+                    showMessage('Transaction refunded successfully!', 'success');
+                    loadHistory();
+                } else {
+                    showMessage('Failed to refund transaction', 'error');
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = type;
+            messageDiv.style.display = 'block';
+
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Auto-refresh history every 10 seconds
+        setInterval(loadHistory, 10000);
+    </script>
+</body>
+</html>
