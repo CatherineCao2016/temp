@@ -95,32 +95,36 @@ jobs:
         run: |
           BUILD_RUN_NAME="${{ steps.submit_build.outputs.build_run_name }}"
           echo "Waiting for build run ${BUILD_RUN_NAME} to complete..."
-          
+
+          # Note: ibmcloud ce buildrun get plain-text output is used intentionally.
+          # The --output json flag returns a format where status.conditions is not
+          # reliably structured, causing jq to fail. Plain-text grep is more stable.
+
           MAX_WAIT=600  # 10 minutes in seconds
-          INTERVAL=10   # Check every 10 seconds
+          INTERVAL=15   # Check every 15 seconds
           ELAPSED=0
-          
+
           while [ $ELAPSED -lt $MAX_WAIT ]; do
-            STATUS=$(ibmcloud ce buildrun get -n ${BUILD_RUN_NAME} --output json | jq -r '.status.conditions[] | select(.type=="Succeeded") | .status')
-            REASON=$(ibmcloud ce buildrun get -n ${BUILD_RUN_NAME} --output json | jq -r '.status.conditions[] | select(.type=="Succeeded") | .reason // "Unknown"')
-            
-            echo "Build status: ${STATUS}, Reason: ${REASON}"
-            
-            if [ "$STATUS" = "True" ]; then
+            BUILD_OUTPUT=$(ibmcloud ce buildrun get -n ${BUILD_RUN_NAME} 2>&1)
+            STATUS=$(echo "$BUILD_OUTPUT" | grep "^Status:" | awk '{print $2}')
+
+            echo "$(date '+%H:%M:%S') - Build status: [${STATUS}] (${ELAPSED}s elapsed)"
+
+            if [ "$STATUS" = "succeeded" ]; then
               echo "✅ Build completed successfully!"
               exit 0
-            elif [ "$STATUS" = "False" ]; then
-              echo "❌ Build failed with reason: ${REASON}"
-              ibmcloud ce buildrun logs -n ${BUILD_RUN_NAME}
+            elif [ "$STATUS" = "failed" ]; then
+              echo "❌ Build failed. Fetching logs..."
+              ibmcloud ce buildrun logs -n ${BUILD_RUN_NAME} || true
               exit 1
             fi
-            
-            echo "Build still in progress... (${ELAPSED}s elapsed)"
+
             sleep $INTERVAL
             ELAPSED=$((ELAPSED + INTERVAL))
           done
-          
+
           echo "❌ Build timed out after ${MAX_WAIT} seconds"
+          ibmcloud ce buildrun get -n ${BUILD_RUN_NAME} || true
           exit 1
       
       - name: Update Code Engine application
