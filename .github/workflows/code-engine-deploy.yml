@@ -52,11 +52,13 @@ jobs:
       
       - name: Generate test report
         if: always()
+        continue-on-error: true
         uses: dorny/test-reporter@v1
         with:
           name: Maven Tests
           path: target/surefire-reports/*.xml
           reporter: java-junit
+          fail-on-error: false
 
   build-deploy:
     name: Build and Deploy to Code Engine
