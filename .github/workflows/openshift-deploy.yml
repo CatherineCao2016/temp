@@ -239,14 +239,15 @@ jobs:
         curl -f -k https://${ROUTE_URL}/ || exit 1
         echo "Smoke tests passed!"
 
-    - name: Create GitHub Release
-      uses: ncipollo/release-action@v1
-      with:
-        tag: v${{ github.run_number }}
-        name: Release v${{ github.run_number }}
-        body: |
-          Automated release from commit ${{ github.sha }}
-          Deployed to production successfully.
-        generateReleaseNotes: true
+    # GitHub Release creation disabled - can be re-enabled if needed
+    # - name: Create GitHub Release
+    #   uses: ncipollo/release-action@v1
+    #   with:
+    #     tag: v${{ github.run_number }}
+    #     name: Release v${{ github.run_number }}
+    #     body: |
+    #       Automated release from commit ${{ github.sha }}
+    #       Deployed to production successfully.
+    #     generateReleaseNotes: true
 
 # Made with Bob
