@@ -202,7 +202,11 @@ jobs:
     - name: Push image to OpenShift registry
       run: |
         docker load < payment-app-image.tar.gz
-        docker login -u $(oc whoami) -p $(oc whoami -t) ${{ env.IMAGE_REGISTRY }}
+        # Use "unused" as username — OpenShift registry authenticates by token only.
+        # Never use $(oc whoami) here: names like "kube:admin" or
+        # "system:serviceaccount:ns:sa" contain colons, which break HTTP Basic Auth
+        # encoding and cause 401 "unauthorized" even with a valid token.
+        docker login -u unused -p $(oc whoami -t) ${{ env.IMAGE_REGISTRY }}
         docker tag ${{ env.APP_NAME }}:${{ github.sha }} \
           ${{ env.IMAGE_REGISTRY }}/${{ env.OPENSHIFT_NAMESPACE }}/${{ env.APP_NAME }}:${{ github.sha }}
         docker tag ${{ env.APP_NAME }}:${{ github.sha }} \

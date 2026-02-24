@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!--
+        OWASP Dependency Check Suppression File
+        ========================================
+        Add suppressions here for false positives or accepted risks.
+
+        Example suppression (uncomment and adapt as needed):
+
+        <suppress>
+            <notes>CVE-XXXX-XXXXX is a false positive for this library version.
+            Verified: <link to evidence></notes>
+            <cve>CVE-XXXX-XXXXX</cve>
+        </suppress>
+
+        Example by file pattern:
+        <suppress>
+            <notes>Accepted risk - internal tool only, not exposed externally</notes>
+            <filePath regex="true">.*h2-.*\.jar</filePath>
+            <cve>CVE-XXXX-XXXXX</cve>
+        </suppress>
+    -->
+</suppressions>

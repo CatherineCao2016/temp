@@ -1,0 +1,187 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-app
+  labels:
+    app: payment-app
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payment-app
+  template:
+    metadata:
+      labels:
+        app: payment-app
+        version: v1
+    spec:
+      serviceAccountName: payment-app-sa
+      containers:
+      - name: payment-app
+        # Image is overwritten by `oc set image` in the CI/CD pipeline.
+        # Format: image-registry.openshift-image-registry.svc:5000/<namespace>/payment-app:<sha>
+        image: image-registry.openshift-image-registry.svc:5000/payment-app-prod/payment-app:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+          name: http
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: JAVA_OPTS
+          value: "-Xmx512m -Xms256m -Djava.io.tmpdir=/tmp"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: app-cache
+          mountPath: /app/cache
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: app-cache
+        emptyDir: {}
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-app
+  labels:
+    app: payment-app
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: payment-app
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: payment-app
+  labels:
+    app: payment-app
+spec:
+  to:
+    kind: Service
+    name: payment-app
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    # edge: TLS terminated at the router; traffic from router to pod is plain HTTP.
+    # This works without any certificate configuration and is suitable for most deployments.
+    # Upgrade to reencrypt only if end-to-end TLS is required (needs destinationCACertificate).
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payment-app-sa
+  labels:
+    app: payment-app
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-app-pdb
+  labels:
+    app: payment-app
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: payment-app
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: payment-app-netpol
+  labels:
+    app: payment-app
+spec:
+  podSelector:
+    matchLabels:
+      app: payment-app
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          network.openshift.io/policy-group: ingress
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow external HTTPS (for potential external API calls)
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow internal service communication
+  - to:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8080
+
+# Made with Bob
