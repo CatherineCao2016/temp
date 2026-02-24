@@ -39,7 +39,7 @@ permissions:
 env:
   APP_NAME: payment-app
   OPENSHIFT_NAMESPACE: payment-app-prod
-  IMAGE_REGISTRY: image-registry.openshift-image-registry.svc:5000
+  IMAGE_REGISTRY: default-route-openshift-image-registry.apps.itz-fuzp47.hub01-lb.techzone.ibm.com
   JAVA_VERSION: '11'
 
 jobs:
