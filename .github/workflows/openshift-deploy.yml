@@ -176,7 +176,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment:
       name: production
-      url: https://REPLACE_WITH_YOUR_PROD_ROUTE.apps.your-cluster.example.com
+      url: https://payment-app-payment-app-prod.apps.itz-fuzp47.hub01-lb.techzone.ibm.com
 
     steps:
     - name: Checkout code
@@ -221,13 +221,15 @@ jobs:
         oc set image deployment/${{ env.APP_NAME }} \
           ${{ env.APP_NAME }}=${{ env.IMAGE_REGISTRY }}/${{ env.OPENSHIFT_NAMESPACE }}/${{ env.APP_NAME }}:${{ github.sha }}
 
-        oc rollout status deployment/${{ env.APP_NAME }} --timeout=5m
+        oc rollout status deployment/${{ env.APP_NAME }} --timeout=10m
 
     - name: Verify deployment
       run: |
         ROUTE_URL=$(oc get route ${{ env.APP_NAME }} -o jsonpath='{.spec.host}')
         echo "Application URL: https://${ROUTE_URL}"
-        sleep 10
+        # Wait longer for app to start (Spring Boot takes ~30s)
+        echo "Waiting for application to be ready..."
+        sleep 45
         curl -f -k https://${ROUTE_URL}/actuator/health || exit 1
         echo "Health check passed!"
 

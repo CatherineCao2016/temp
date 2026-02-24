@@ -6,7 +6,9 @@ metadata:
     app: payment-app
     version: v1
 spec:
-  replicas: 2
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: payment-app
@@ -34,10 +36,10 @@ spec:
           value: "-Xmx512m -Xms256m -Djava.io.tmpdir=/tmp"
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
+            memory: "256Mi"
+            cpu: "100m"
           limits:
-            memory: "1Gi"
+            memory: "512Mi"
             cpu: "500m"
         livenessProbe:
           httpGet:
@@ -46,7 +48,7 @@ spec:
             scheme: HTTP
           initialDelaySeconds: 60
           periodSeconds: 10
-          timeoutSeconds: 3
+          timeoutSeconds: 5
           successThreshold: 1
           failureThreshold: 3
         readinessProbe:
@@ -54,9 +56,9 @@ spec:
             path: /actuator/health
             port: 8080
             scheme: HTTP
-          initialDelaySeconds: 30
-          periodSeconds: 5
-          timeoutSeconds: 3
+          initialDelaySeconds: 45
+          periodSeconds: 10
+          timeoutSeconds: 5
           successThreshold: 1
           failureThreshold: 3
         securityContext:
@@ -135,7 +137,7 @@ metadata:
   labels:
     app: payment-app
 spec:
-  minAvailable: 1
+  minAvailable: 0
   selector:
     matchLabels:
       app: payment-app
