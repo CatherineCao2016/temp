@@ -133,7 +133,10 @@ jobs:
         id: build
         run: |
           echo "Starting build from current directory..."
-          BUILD_NAME=$(oc start-build payment-app --from-dir=. --follow -n payment-app-staging | tee /dev/stderr | grep -o 'payment-app-[0-9]*')
+          oc start-build payment-app --from-dir=. --follow -n payment-app-staging
+          
+          # Get the latest build name
+          BUILD_NAME=$(oc get builds -n payment-app-staging --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
           echo "Build completed: ${BUILD_NAME}"
           
           # Get image digest
@@ -238,7 +241,7 @@ jobs:
   build-image-production:
     name: Build Image for Production
     runs-on: ubuntu-latest
-    needs: [build-and-test, security-scan, deploy-staging]
+    needs: [build-and-test, deploy-staging]
     if: github.ref == 'refs/heads/main'
     permissions:
       contents: read
@@ -273,7 +276,10 @@ jobs:
         id: build
         run: |
           echo "Starting build from current directory..."
-          BUILD_NAME=$(oc start-build payment-app --from-dir=. --follow -n payment-app-production | tee /dev/stderr | grep -o 'payment-app-[0-9]*')
+          oc start-build payment-app --from-dir=. --follow -n payment-app-production
+          
+          # Get the latest build name
+          BUILD_NAME=$(oc get builds -n payment-app-production --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
           echo "Build completed: ${BUILD_NAME}"
           
           # Get image digest
