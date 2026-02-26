@@ -220,7 +220,7 @@ jobs:
           curl -f -k ${APP_URL}/ || exit 1
           
           echo -e "\nTesting API endpoint..."
-          curl -f -k ${APP_URL}/api/payments || exit 1
+          curl -f -k ${APP_URL}/api/payments/history || exit 1
 
       - name: Deployment summary
         if: success()
@@ -363,7 +363,7 @@ jobs:
           curl -f -k ${APP_URL}/ || exit 1
           
           echo -e "\nTesting API endpoint..."
-          curl -f -k ${APP_URL}/api/payments || exit 1
+          curl -f -k ${APP_URL}/api/payments/history || exit 1
 
       - name: Monitor deployment health
         run: |
