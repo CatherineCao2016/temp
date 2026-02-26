@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payment-app-staging
+  labels:
+    name: payment-app-staging
+    environment: staging
+  annotations:
+    openshift.io/description: "Payment Application Staging Environment"
+    openshift.io/display-name: "Payment App - Staging"
+
+# Made with Bob

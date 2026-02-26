@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-app
+spec:
+  replicas: 5
+  template:
+    metadata:
+      annotations:
+        environment: production
+    spec:
+      containers:
+      - name: payment-app
+        image: default-route-openshift-image-registry.apps.itz-anmwwn.hub01-lb.techzone.ibm.com/payment-app-production/payment-app:latest
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "production"
+        - name: JAVA_OPTS
+          value: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+UseStringDeduplication"
+
+# Made with Bob

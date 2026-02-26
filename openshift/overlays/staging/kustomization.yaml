@@ -1,0 +1,52 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: payment-app-staging
+
+namespace: payment-app-staging
+
+bases:
+  - ../../base
+
+nameSuffix: -staging
+
+commonLabels:
+  environment: staging
+
+commonAnnotations:
+  environment: staging
+  deployment-type: automatic
+
+resources:
+  - configmap.yaml
+  - namespace.yaml
+
+images:
+  - name: payment-app
+    newName: image-registry.openshift-image-registry.svc:5000/payment-app-staging/payment-app
+    newTag: latest
+
+replicas:
+  - name: payment-app
+    count: 3
+
+patches:
+  - path: patches/deployment-patch.yaml
+    target:
+      kind: Deployment
+      name: payment-app
+  - path: patches/route-patch.yaml
+    target:
+      kind: Route
+      name: payment-app
+
+configMapGenerator:
+  - name: payment-app-config
+    behavior: merge
+    literals:
+      - SPRING_PROFILES_ACTIVE=staging
+      - LOGGING_LEVEL_ROOT=DEBUG
+      - LOGGING_LEVEL_COM_DEMO_PAYMENT=DEBUG
+
+# Made with Bob

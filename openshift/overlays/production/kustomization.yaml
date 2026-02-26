@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: payment-app-production
+
+namespace: payment-app-production
+
+bases:
+  - ../../base
+
+nameSuffix: -production
+
+commonLabels:
+  environment: production
+
+commonAnnotations:
+  environment: production
+  deployment-type: manual-approval
+
+resources:
+  - configmap.yaml
+  - namespace.yaml
+
+images:
+  - name: payment-app
+    newName: default-route-openshift-image-registry.apps.itz-anmwwn.hub01-lb.techzone.ibm.com/payment-app-production/payment-app
+    newTag: latest
+
+replicas:
+  - name: payment-app
+    count: 5
+
+patches:
+  - path: patches/deployment-patch.yaml
+    target:
+      kind: Deployment
+      name: payment-app
+  - path: patches/route-patch.yaml
+    target:
+      kind: Route
+      name: payment-app
+  - path: patches/hpa-patch.yaml
+    target:
+      kind: HorizontalPodAutoscaler
+      name: payment-app
+
+configMapGenerator:
+  - name: payment-app-config
+    behavior: merge
+    literals:
+      - SPRING_PROFILES_ACTIVE=production
+      - LOGGING_LEVEL_ROOT=WARN
+      - LOGGING_LEVEL_COM_DEMO_PAYMENT=INFO
+
+# Made with Bob

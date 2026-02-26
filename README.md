@@ -1,222 +1,323 @@
-# Payment Processing Application
+# Payment Application
 
-A mock credit card payment processing application built with Spring Boot and Thymeleaf.
+A Spring Boot-based payment processing application with automated CI/CD deployment to OpenShift.
 
-## Features
+## 🚀 Quick Start
 
-- **REST API Endpoints:**
-  - `POST /api/payments/authorize` - Authorize a card transaction
-  - `POST /api/payments/capture` - Capture an authorized transaction
-  - `POST /api/payments/refund` - Refund a captured transaction
-  - `GET /api/payments/{id}` - Get transaction status
-  - `GET /api/payments/history` - List recent transactions
-  - `POST /admin/cache/clear` - Clear local cache
-  - `GET /actuator/health` - Health check endpoint
-  - `GET /actuator/prometheus` - Metrics endpoint
+### Prerequisites
+- Java 11 or later
+- Maven 3.9+
+- Docker (for local builds)
+- OpenShift CLI (oc) for deployment
 
-- **Frontend:**
-  - Payment form with card number, expiry, CVV, and amount fields
-  - Transaction history dashboard
-  - Status badges (Authorized, Captured, Declined, Refunded)
-  - Real-time transaction updates
-
-- **Backend Features:**
-  - In-memory H2 database
-  - Caffeine cache for transaction lookups
-  - Realistic processing delays (200-500ms)
-  - Random transaction declines (10% of transactions)
-  - Card validation (expiry, test card numbers)
-
-## Test Card Numbers
-
-Use these test card numbers for testing:
-
-- **Visa:** `4263970000005262`
-- **MasterCard:** `5425230000004415`
-- **Amex:** `374101000000608`
-
-## Requirements
-
-- Java 11 or higher
-- Maven 3.6+
-
-## Running the Application
-
-### Single Command
+### Local Development
 
 ```bash
-mvn spring-boot:run
-```
+# Clone the repository
+git clone <repository-url>
+cd payment-app
 
-The application will start on `http://localhost:8080`
-
-### Alternative: Build and Run JAR
-
-```bash
+# Build the application
 mvn clean package
-java -jar target/payment-app-1.0.0.jar
+
+# Run locally
+mvn spring-boot:run
+
+# Access the application
+open http://localhost:8080
 ```
 
-## Accessing the Application
-
-### Web Interface
-Open your browser and navigate to:
-```
-http://localhost:8080
-```
-
-### H2 Database Console
-Access the H2 console at:
-```
-http://localhost:8080/h2-console
-```
-
-**Connection Details:**
-- JDBC URL: `jdbc:h2:mem:paymentdb`
-- Username: `sa`
-- Password: (leave empty)
-
-### Actuator Endpoints
-
-- Health Check: `http://localhost:8080/actuator/health`
-- Prometheus Metrics: `http://localhost:8080/actuator/prometheus`
-
-## API Usage Examples
-
-### Authorize a Payment
+### Running Tests
 
 ```bash
-curl -X POST http://localhost:8080/api/payments/authorize \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cardNumber": "4263970000005262",
-    "cardExpiry": "12/25",
-    "cvv": "123",
-    "amount": 100.00
-  }'
+# Run unit tests
+mvn test
+
+# Run integration tests
+mvn verify
+
+# Generate code coverage report
+mvn jacoco:report
 ```
 
-### Capture a Transaction
+## 🏗️ Architecture
 
-```bash
-curl -X POST http://localhost:8080/api/payments/capture \
-  -H "Content-Type: application/json" \
-  -d '{
-    "transactionId": "your-transaction-id"
-  }'
+### Technology Stack
+- **Framework:** Spring Boot 2.7.x
+- **Language:** Java 11
+- **Build Tool:** Maven
+- **Container:** Docker
+- **Orchestration:** OpenShift/Kubernetes
+- **CI/CD:** GitHub Actions
+
+### Application Structure
 ```
-
-### Refund a Transaction
-
-```bash
-curl -X POST http://localhost:8080/api/payments/refund \
-  -H "Content-Type: application/json" \
-  -d '{
-    "transactionId": "your-transaction-id"
-  }'
-```
-
-### Get Transaction by ID
-
-```bash
-curl http://localhost:8080/api/payments/1
-```
-
-### Get Transaction History
-
-```bash
-curl http://localhost:8080/api/payments/history
-```
-
-### Clear Cache
-
-```bash
-curl -X POST http://localhost:8080/admin/cache/clear
-```
-
-## Transaction Flow
-
-1. **Authorize** - Reserve funds on the card
-2. **Capture** - Actually charge the card (can only capture authorized transactions)
-3. **Refund** - Return funds to the card (can only refund captured transactions)
-
-## Response Codes
-
-- `00` - Approved
-- `DECLINED` - Transaction declined
-- `EXPIRED` - Card expired
-- `INSUFFICIENT_FUNDS` - Insufficient funds
-- `INVALID_CARD` - Invalid card number
-
-## Transaction Statuses
-
-- **AUTHORIZED** (Yellow) - Transaction authorized, awaiting capture
-- **CAPTURED** (Green) - Transaction captured, payment complete
-- **DECLINED** (Red) - Transaction declined
-- **REFUNDED** (Gray) - Transaction refunded
-
-## Configuration
-
-The application uses the following default configuration (see `application.properties`):
-
-- Server Port: `8080`
-- Database: In-memory H2
-- Cache: Caffeine (max 1000 entries, 10 minutes expiry)
-- Processing Delay: 200-500ms
-- Random Decline Rate: 10%
-
-## Project Structure
-
-```
-payment_app/
+payment-app/
 ├── src/
-│   └── main/
-│       ├── java/com/demo/payment/
-│       │   ├── PaymentApplication.java
-│       │   ├── controller/
-│       │   │   ├── PaymentController.java
-│       │   │   ├── AdminController.java
-│       │   │   └── WebController.java
-│       │   ├── dto/
-│       │   │   ├── PaymentRequest.java
-│       │   │   ├── PaymentResponse.java
-│       │   │   └── TransactionRequest.java
-│       │   ├── model/
-│       │   │   ├── Transaction.java
-│       │   │   ├── TransactionStatus.java
-│       │   │   └── TransactionType.java
-│       │   ├── repository/
-│       │   │   └── TransactionRepository.java
-│       │   └── service/
-│       │       └── PaymentService.java
-│       └── resources/
-│           ├── application.properties
-│           └── templates/
-│               └── index.html
-├── pom.xml
-└── README.md
+│   ├── main/
+│   │   ├── java/com/demo/payment/
+│   │   │   ├── controller/      # REST API controllers
+│   │   │   ├── service/         # Business logic
+│   │   │   ├── model/           # Domain models
+│   │   │   ├── repository/      # Data access
+│   │   │   ├── dto/             # Data transfer objects
+│   │   │   └── config/          # Configuration classes
+│   │   └── resources/
+│   │       ├── application.properties
+│   │       └── templates/       # Web templates
+│   └── test/                    # Test classes
+├── .github/workflows/           # CI/CD pipelines
+├── openshift/                   # Kubernetes manifests
+├── Dockerfile                   # Container image definition
+└── pom.xml                      # Maven configuration
 ```
 
-## Technologies Used
+## 🔄 CI/CD Pipeline
 
-- **Spring Boot 2.7.18** - Application framework
-- **Spring Data JPA** - Data persistence
-- **H2 Database** - In-memory database
-- **Caffeine** - Local caching
-- **Thymeleaf** - Template engine
-- **Spring Boot Actuator** - Monitoring and metrics
-- **Micrometer Prometheus** - Metrics export
-- **Hibernate Validator** - Input validation
-- **Lombok** - Boilerplate code reduction
+### Automated Deployment
 
-## Notes
+The application uses GitHub Actions for automated CI/CD:
 
-- This is a **demo application** for testing purposes only
-- All data is stored in-memory and will be lost when the application stops
-- The application simulates realistic payment processing with delays and random declines
-- Only the specified test card numbers will be accepted
-- Card expiry dates must be in the future (MM/YY format)
+**Pipeline Stages:**
+1. **Build & Test** - Compile code and run tests
+2. **Security Scan** - OWASP dependency vulnerability check
+3. **Build Image** - Create container image in OpenShift
+4. **Deploy Staging** - Automatic deployment to staging
+5. **Deploy Production** - Manual approval required
 
-## License
+**Workflow File:** `.github/workflows/cicd.yaml`
 
-This is a demo application for educational purposes.
+### Deployment Environments
+
+#### Staging
+- **URL:** https://payment-app-staging.apps.itz-9i05h3.hub01-lb.techzone.ibm.com
+- **Deployment:** Automatic on push to `main` or `develop`
+- **Purpose:** Testing and validation
+
+#### Production
+- **URL:** https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com
+- **Deployment:** Manual approval required
+- **Purpose:** Live production environment
+
+### Triggering Deployments
+
+```bash
+# Automatic deployment to staging
+git push origin main
+
+# Production deployment requires manual approval in GitHub Actions UI
+```
+
+## 🐳 Container Image
+
+### Building Locally
+
+```bash
+# Build Docker image
+docker build -t payment-app:latest .
+
+# Run container
+docker run -p 8080:8080 payment-app:latest
+```
+
+### OpenShift Build
+
+The CI/CD pipeline uses OpenShift's built-in build system:
+- **BuildConfig:** Binary source build
+- **Strategy:** Docker
+- **Registry:** OpenShift internal registry
+
+## ☸️ Kubernetes Deployment
+
+### Manifests Structure
+
+```
+openshift/
+├── base/                        # Base Kubernetes resources
+│   ├── deployment.yaml         # Application deployment
+│   ├── service.yaml            # Service definition
+│   ├── route.yaml              # OpenShift route
+│   ├── hpa.yaml                # Horizontal Pod Autoscaler
+│   ├── pdb.yaml                # Pod Disruption Budget
+│   ├── serviceaccount.yaml     # Service account
+│   └── configmap.yaml          # Configuration
+└── overlays/                    # Environment-specific configs
+    ├── staging/                # Staging environment
+    └── production/             # Production environment
+```
+
+### Resource Configuration
+
+#### Staging
+- **Replicas:** 3-10 (auto-scaling)
+- **CPU:** 250m request, 1000m limit
+- **Memory:** 512Mi request, 1Gi limit
+
+#### Production
+- **Replicas:** 5-20 (auto-scaling)
+- **CPU:** 500m request, 2000m limit
+- **Memory:** 1Gi request, 2Gi limit
+
+## 🔍 Monitoring & Health Checks
+
+### Health Endpoints
+
+```bash
+# Overall health
+curl https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com/actuator/health
+
+# Readiness probe
+curl https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com/actuator/health/readiness
+
+# Liveness probe
+curl https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com/actuator/health/liveness
+
+# Metrics
+curl https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com/actuator/metrics
+```
+
+### Logging
+
+```bash
+# View application logs
+oc logs -f deployment/payment-app-production -n payment-app-production
+
+# View logs from specific pod
+oc logs <pod-name> -n payment-app-production
+```
+
+## 🔒 Security
+
+### Security Features
+- ✅ Non-root container user (UID 1001)
+- ✅ Read-only root filesystem
+- ✅ Dropped all capabilities
+- ✅ OWASP dependency scanning
+- ✅ TLS termination at route level
+- ✅ Secrets management via OpenShift Secrets
+
+### Security Scanning
+
+The CI/CD pipeline includes automated security scanning:
+- **OWASP Dependency Check** - Identifies vulnerable dependencies
+- **Trivy** - Container image vulnerability scanning
+- **Fail threshold:** CVSS >= 7
+
+## 🛠️ Development
+
+### API Endpoints
+
+```
+GET  /                          # Home page
+GET  /api/payments              # List payments
+POST /api/payments              # Create payment
+GET  /api/payments/{id}         # Get payment details
+GET  /actuator/health           # Health check
+GET  /actuator/metrics          # Application metrics
+```
+
+### Configuration
+
+Environment-specific configuration is managed through:
+- **ConfigMaps:** Non-sensitive configuration
+- **Secrets:** Sensitive data (passwords, API keys)
+- **Environment Variables:** Runtime configuration
+
+### Local Development Setup
+
+```bash
+# Set environment variables
+export DATABASE_URL=jdbc:postgresql://localhost:5432/payment_db
+export REDIS_HOST=localhost
+export SPRING_PROFILES_ACTIVE=dev
+
+# Run with specific profile
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+## 📚 Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- **[Deployment Guide](../docs/DEPLOYMENT.md)** - Complete deployment procedures
+- **[GitHub Actions Setup](../docs/GITHUB_ACTIONS_SETUP.md)** - CI/CD configuration
+- **[Troubleshooting Guide](../docs/troubleshooting-guide.md)** - Common issues and solutions
+- **[Helper Scripts](../docs/scripts/)** - Manual deployment scripts
+
+## 🤝 Contributing
+
+### Development Workflow
+
+1. Create a feature branch from `develop`
+2. Make your changes
+3. Run tests: `mvn test`
+4. Commit with descriptive message
+5. Push and create pull request
+6. Wait for CI/CD checks to pass
+7. Request review
+
+### Code Quality
+
+```bash
+# Run code formatting
+mvn spring-javaformat:apply
+
+# Run static analysis
+mvn checkstyle:check
+
+# Generate test coverage
+mvn jacoco:report
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Build Failures:**
+```bash
+# Clean Maven cache
+mvn clean install -U
+
+# Skip tests temporarily
+mvn package -DskipTests
+```
+
+**Deployment Issues:**
+```bash
+# Check pod status
+oc get pods -n payment-app-production
+
+# View pod logs
+oc logs <pod-name> -n payment-app-production
+
+# Describe pod for events
+oc describe pod <pod-name> -n payment-app-production
+```
+
+**Image Pull Issues:**
+```bash
+# Verify image exists
+oc get imagestream payment-app -n payment-app-production
+
+# Check build status
+oc get builds -n payment-app-production
+```
+
+For detailed troubleshooting, see [Troubleshooting Guide](../docs/troubleshooting-guide.md).
+
+## 📞 Support
+
+- **Issues:** Create a GitHub issue
+- **Documentation:** See `docs/` directory
+- **DevOps Team:** devops@example.com
+- **On-Call:** oncall@example.com
+
+## 📄 License
+
+[Add your license information here]
+
+---
+
+**Version:** 1.0.0  
+**Last Updated:** 2026-02-26  
+**Maintained By:** DevOps Team

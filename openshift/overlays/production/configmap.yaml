@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-app-config-production
+  labels:
+    app: payment-app
+    environment: production
+data:
+  # Production-specific configuration
+  ENVIRONMENT: "production"
+  
+  # Spring Boot configuration
+  SPRING_PROFILES_ACTIVE: "production"
+  
+  # Logging configuration
+  LOGGING_LEVEL_ROOT: "WARN"
+  LOGGING_LEVEL_COM_DEMO_PAYMENT: "INFO"
+  
+  # Feature flags for production
+  FEATURE_NEW_PAYMENT_FLOW: "false"
+  FEATURE_ENHANCED_LOGGING: "false"
+  
+  # External service endpoints (production) - Update these with actual URLs
+  PAYMENT_GATEWAY_URL: "https://api.payment-gateway.example.com"
+  NOTIFICATION_SERVICE_URL: "https://notifications.example.com"
+
+# Made with Bob

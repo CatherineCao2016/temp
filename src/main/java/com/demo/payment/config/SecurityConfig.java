@@ -21,9 +21,9 @@ public class SecurityConfig {
         http
             .csrf().disable() // Disable CSRF for API endpoints (use tokens in production)
             .authorizeHttpRequests(authz -> authz
-                .antMatchers("/admin/**").hasRole("ADMIN")
-                .antMatchers("/actuator/health", "/actuator/prometheus").permitAll()
+                .antMatchers("/actuator/**").permitAll() // Allow all actuator endpoints for health checks
                 .antMatchers("/api/**", "/", "/css/**", "/js/**").permitAll()
+                .antMatchers("/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .httpBasic(); // Use HTTP Basic Auth for admin endpoints

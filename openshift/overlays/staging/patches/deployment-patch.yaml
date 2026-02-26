@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-app
+spec:
+  replicas: 3
+  template:
+    metadata:
+      annotations:
+        environment: staging
+    spec:
+      containers:
+      - name: payment-app
+        image: default-route-openshift-image-registry.apps.itz-9i05h3.hub01-lb.techzone.ibm.com/payment-app-staging/payment-app:latest
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "staging"
+        - name: JAVA_OPTS
+          value: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Xlog:gc*:file=/app/logs/gc.log"
+
+# Made with Bob

@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-app
+  labels:
+    app: payment-app
+    app.kubernetes.io/name: payment-app
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: payment-app
+  unhealthyPodEvictionPolicy: AlwaysAllow
+
+# Made with Bob

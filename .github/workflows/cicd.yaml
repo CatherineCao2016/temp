@@ -1,0 +1,460 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  JAVA_VERSION: '11'
+  MAVEN_OPTS: '-Xmx3072m'
+  OPENSHIFT_SERVER: https://api.itz-9i05h3.hub01-lb.techzone.ibm.com:6443
+  IMAGE_REGISTRY: default-route-openshift-image-registry.apps.itz-9i05h3.hub01-lb.techzone.ibm.com
+  IMAGE_NAME: payment-app
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        run: mvn clean compile -B
+
+      - name: Run unit tests
+        run: mvn test -B
+
+      - name: Run integration tests
+        run: mvn verify -B
+
+      - name: Generate code coverage report
+        run: mvn jacoco:report -B
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./target/site/jacoco/jacoco.xml
+          flags: unittests
+          name: codecov-payment-app
+
+      - name: Package application
+        run: mvn package -DskipTests -B
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: payment-app-jar
+          path: target/*.jar
+          retention-days: 5
+
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    permissions:
+      contents: read
+      security-events: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: payment-app-jar
+          path: target
+
+      - name: Run dependency vulnerability scan
+        run: mvn dependency-check:check -B
+
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'payment-app'
+          path: '.'
+          format: 'HTML'
+          args: >
+            --failOnCVSS 7
+            --enableRetired
+
+      - name: Upload dependency check results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: dependency-check-report
+          path: reports/
+
+  build-image-staging:
+    name: Build Image for Staging
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    permissions:
+      contents: read
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install OpenShift CLI
+        uses: redhat-actions/openshift-tools-installer@v1
+        with:
+          oc: latest
+
+      - name: Authenticate to OpenShift
+        run: |
+          oc login --token=${{ secrets.OPENSHIFT_STAGING_TOKEN }} \
+                   --server=${{ env.OPENSHIFT_SERVER }} \
+                   --insecure-skip-tls-verify=true
+
+      - name: Switch to staging namespace
+        run: oc project payment-app-staging
+
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: payment-app-jar
+          path: target
+
+      - name: Trigger OpenShift build
+        id: build
+        run: |
+          echo "Starting build from current directory..."
+          BUILD_NAME=$(oc start-build payment-app --from-dir=. --follow -n payment-app-staging | tee /dev/stderr | grep -o 'payment-app-[0-9]*')
+          echo "Build completed: ${BUILD_NAME}"
+          
+          # Get image digest
+          DIGEST=$(oc get build ${BUILD_NAME} -n payment-app-staging -o jsonpath='{.status.output.to.imageDigest}')
+          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+          echo "Image digest: ${DIGEST}"
+
+      - name: Verify image in registry
+        run: |
+          oc get imagestream payment-app -n payment-app-staging
+          echo "Latest image:"
+          oc get imagestream payment-app -n payment-app-staging -o jsonpath='{.status.tags[0].items[0].dockerImageReference}'
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-image-staging
+    environment:
+      name: staging
+      url: https://payment-app-staging.apps.itz-9i05h3.hub01-lb.techzone.ibm.com
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install OpenShift CLI
+        uses: redhat-actions/openshift-tools-installer@v1
+        with:
+          oc: latest
+
+      - name: Authenticate to OpenShift
+        run: |
+          oc login --token=${{ secrets.OPENSHIFT_STAGING_TOKEN }} \
+                   --server=${{ env.OPENSHIFT_SERVER }} \
+                   --insecure-skip-tls-verify=true
+
+      - name: Deploy to staging
+        run: |
+          echo "Applying staging manifests..."
+          oc apply -k openshift/overlays/staging
+
+      - name: Wait for rollout
+        run: |
+          echo "Waiting for deployment to complete..."
+          oc rollout status deployment/payment-app-staging -n payment-app-staging --timeout=5m
+
+      - name: Verify deployment
+        run: |
+          echo "=== Deployment Status ==="
+          oc get deployment payment-app-staging -n payment-app-staging
+          
+          echo -e "\n=== Pods ==="
+          oc get pods -n payment-app-staging -l app=payment-app
+          
+          echo -e "\n=== Service ==="
+          oc get svc payment-app-staging -n payment-app-staging
+          
+          echo -e "\n=== Route ==="
+          oc get route payment-app-staging -n payment-app-staging
+
+      - name: Health checks
+        run: |
+          APP_URL="https://payment-app-staging.apps.itz-9i05h3.hub01-lb.techzone.ibm.com"
+          
+          echo "Testing health endpoint..."
+          curl -f -k ${APP_URL}/actuator/health || exit 1
+          
+          echo -e "\nTesting readiness endpoint..."
+          curl -f -k ${APP_URL}/actuator/health/readiness || exit 1
+          
+          echo -e "\nTesting liveness endpoint..."
+          curl -f -k ${APP_URL}/actuator/health/liveness || exit 1
+
+      - name: Smoke tests
+        run: |
+          APP_URL="https://payment-app-staging.apps.itz-9i05h3.hub01-lb.techzone.ibm.com"
+          
+          echo "Testing home page..."
+          curl -f -k ${APP_URL}/ || exit 1
+          
+          echo -e "\nTesting API endpoint..."
+          curl -f -k ${APP_URL}/api/payments || exit 1
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "✅ Staging deployment successful!"
+          echo "🌐 Application URL: https://payment-app-staging.apps.itz-9i05h3.hub01-lb.techzone.ibm.com"
+          echo "📦 Image: ${{ env.IMAGE_REGISTRY }}/payment-app-staging/${{ env.IMAGE_NAME }}:latest"
+          echo "🔍 Image Digest: ${{ needs.build-image-staging.outputs.image-digest }}"
+          echo "📊 Health: https://payment-app-staging.apps.itz-9i05h3.hub01-lb.techzone.ibm.com/actuator/health"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed - attempting rollback..."
+          oc rollout undo deployment/payment-app-staging -n payment-app-staging || true
+          echo "Rollback completed"
+
+  build-image-production:
+    name: Build Image for Production
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan, deploy-staging]
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install OpenShift CLI
+        uses: redhat-actions/openshift-tools-installer@v1
+        with:
+          oc: latest
+
+      - name: Authenticate to OpenShift
+        run: |
+          oc login --token=${{ secrets.OPENSHIFT_PRODUCTION_TOKEN }} \
+                   --server=${{ env.OPENSHIFT_SERVER }} \
+                   --insecure-skip-tls-verify=true
+
+      - name: Switch to production namespace
+        run: oc project payment-app-production
+
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: payment-app-jar
+          path: target
+
+      - name: Trigger OpenShift build
+        id: build
+        run: |
+          echo "Starting build from current directory..."
+          BUILD_NAME=$(oc start-build payment-app --from-dir=. --follow -n payment-app-production | tee /dev/stderr | grep -o 'payment-app-[0-9]*')
+          echo "Build completed: ${BUILD_NAME}"
+          
+          # Get image digest
+          DIGEST=$(oc get build ${BUILD_NAME} -n payment-app-production -o jsonpath='{.status.output.to.imageDigest}')
+          echo "digest=${DIGEST}" >> $GITHUB_OUTPUT
+          echo "Image digest: ${DIGEST}"
+
+      - name: Verify image in registry
+        run: |
+          oc get imagestream payment-app -n payment-app-production
+          echo "Latest image:"
+          oc get imagestream payment-app -n payment-app-production -o jsonpath='{.status.tags[0].items[0].dockerImageReference}'
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build-image-production
+    environment:
+      name: production
+      url: https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install OpenShift CLI
+        uses: redhat-actions/openshift-tools-installer@v1
+        with:
+          oc: latest
+
+      - name: Authenticate to OpenShift
+        run: |
+          oc login --token=${{ secrets.OPENSHIFT_PRODUCTION_TOKEN }} \
+                   --server=${{ env.OPENSHIFT_SERVER }} \
+                   --insecure-skip-tls-verify=true
+
+      - name: Deploy to production
+        run: |
+          echo "Applying production manifests..."
+          oc apply -k openshift/overlays/production
+
+      - name: Wait for rollout
+        run: |
+          echo "Waiting for deployment to complete..."
+          oc rollout status deployment/payment-app-production -n payment-app-production --timeout=10m
+
+      - name: Verify deployment
+        run: |
+          echo "=== Deployment Status ==="
+          oc get deployment payment-app-production -n payment-app-production
+          
+          echo -e "\n=== Pods ==="
+          oc get pods -n payment-app-production -l app=payment-app
+          
+          echo -e "\n=== Service ==="
+          oc get svc payment-app-production -n payment-app-production
+          
+          echo -e "\n=== Route ==="
+          oc get route payment-app-production -n payment-app-production
+
+      - name: Health checks
+        run: |
+          APP_URL="https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com"
+          
+          echo "Testing health endpoint..."
+          curl -f -k ${APP_URL}/actuator/health || exit 1
+          
+          echo -e "\nTesting readiness endpoint..."
+          curl -f -k ${APP_URL}/actuator/health/readiness || exit 1
+          
+          echo -e "\nTesting liveness endpoint..."
+          curl -f -k ${APP_URL}/actuator/health/liveness || exit 1
+
+      - name: Smoke tests
+        run: |
+          APP_URL="https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com"
+          
+          echo "Testing home page..."
+          curl -f -k ${APP_URL}/ || exit 1
+          
+          echo -e "\nTesting API endpoint..."
+          curl -f -k ${APP_URL}/api/payments || exit 1
+
+      - name: Monitor deployment health
+        run: |
+          APP_URL="https://payment-app-production.apps.itz-9i05h3.hub01-lb.techzone.ibm.com"
+          echo "Monitoring deployment for 60 seconds..."
+          sleep 60
+          for i in {1..5}; do
+            echo "Health check $i/5..."
+            curl -f -k ${APP_URL}/actuator/health || exit 1
+            sleep 10
+          done
+          echo "✅ All health checks passed"
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "✅ Production deployment successful!"
+          echo "🌐 Application URL: https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com"
+          echo "📦 Image: ${{ env.IMAGE_REGISTRY }}/payment-app-production/${{ env.IMAGE_NAME }}:latest"
+          echo "🔍 Image Digest: ${{ needs.build-image-production.outputs.image-digest }}"
+          echo "📊 Health: https://payment-app-production.apps.itz-9i05h3.hub01-lb.techzone.ibm.com/actuator/health"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed - attempting rollback..."
+          oc rollout undo deployment/payment-app-production -n payment-app-production || true
+          echo "Rollback completed"
+
+      - name: Create GitHub Release
+        if: success() && github.ref == 'refs/heads/main'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          body: |
+            Production deployment successful
+            - Commit: ${{ github.sha }}
+            - Image: ${{ env.IMAGE_REGISTRY }}/payment-app-production/${{ env.IMAGE_NAME }}:latest
+            - Digest: ${{ needs.build-image-production.outputs.image-digest }}
+            - URL: https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com
+          draft: false
+          prerelease: false
+
+  notify:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan, build-image-staging, deploy-staging, build-image-production, deploy-production]
+    if: always()
+    
+    steps:
+      - name: Pipeline summary
+        run: |
+          echo "=== Pipeline Results ==="
+          echo "Build & Test: ${{ needs.build-and-test.result }}"
+          echo "Security Scan: ${{ needs.security-scan.result }}"
+          echo "Build Image (Staging): ${{ needs.build-image-staging.result }}"
+          echo "Deploy Staging: ${{ needs.deploy-staging.result }}"
+          echo "Build Image (Production): ${{ needs.build-image-production.result }}"
+          echo "Deploy Production: ${{ needs.deploy-production.result }}"
+          
+          if [ "${{ needs.deploy-staging.result }}" == "success" ]; then
+            echo "✅ Staging: https://payment-app-staging.apps.itz-9i05h3.hub01-lb.techzone.ibm.com"
+          fi
+          
+          if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+            echo "✅ Production: https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com"
+          fi

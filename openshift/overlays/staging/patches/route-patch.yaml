@@ -1,0 +1,16 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: payment-app
+  annotations:
+    haproxy.router.openshift.io/timeout: 60s
+spec:
+  host: payment-app-staging.apps.itz-9i05h3.hub01-lb.techzone.ibm.com
+  to:
+    kind: Service
+    name: payment-app-staging
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# Made with Bob
