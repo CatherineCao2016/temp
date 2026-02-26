@@ -25,8 +25,10 @@ on:
 env:
   JAVA_VERSION: '11'
   MAVEN_OPTS: '-Xmx3072m'
-  OPENSHIFT_SERVER: https://api.itz-9i05h3.hub01-lb.techzone.ibm.com:6443
-  IMAGE_REGISTRY: default-route-openshift-image-registry.apps.itz-9i05h3.hub01-lb.techzone.ibm.com
+  OPENSHIFT_SERVER_STAGING: https://api.itz-9i05h3.hub01-lb.techzone.ibm.com:6443
+  OPENSHIFT_SERVER_PRODUCTION: https://api.itz-anmwwn.hub01-lb.techzone.ibm.com:6443
+  IMAGE_REGISTRY_STAGING: default-route-openshift-image-registry.apps.itz-9i05h3.hub01-lb.techzone.ibm.com
+  IMAGE_REGISTRY_PRODUCTION: default-route-openshift-image-registry.apps.itz-anmwwn.hub01-lb.techzone.ibm.com
   IMAGE_NAME: payment-app
 
 jobs:
@@ -117,7 +119,7 @@ jobs:
       - name: Authenticate to OpenShift
         run: |
           oc login --token=${{ secrets.OPENSHIFT_STAGING_TOKEN }} \
-                   --server=${{ env.OPENSHIFT_SERVER }} \
+                   --server=${{ env.OPENSHIFT_SERVER_STAGING }} \
                    --insecure-skip-tls-verify=true
 
       - name: Switch to staging namespace
@@ -172,7 +174,7 @@ jobs:
       - name: Authenticate to OpenShift
         run: |
           oc login --token=${{ secrets.OPENSHIFT_STAGING_TOKEN }} \
-                   --server=${{ env.OPENSHIFT_SERVER }} \
+                   --server=${{ env.OPENSHIFT_SERVER_STAGING }} \
                    --insecure-skip-tls-verify=true
 
       - name: Deploy to staging
@@ -260,7 +262,7 @@ jobs:
       - name: Authenticate to OpenShift
         run: |
           oc login --token=${{ secrets.OPENSHIFT_PRODUCTION_TOKEN }} \
-                   --server=${{ env.OPENSHIFT_SERVER }} \
+                   --server=${{ env.OPENSHIFT_SERVER_PRODUCTION }} \
                    --insecure-skip-tls-verify=true
 
       - name: Switch to production namespace
@@ -315,7 +317,7 @@ jobs:
       - name: Authenticate to OpenShift
         run: |
           oc login --token=${{ secrets.OPENSHIFT_PRODUCTION_TOKEN }} \
-                   --server=${{ env.OPENSHIFT_SERVER }} \
+                   --server=${{ env.OPENSHIFT_SERVER_PRODUCTION }} \
                    --insecure-skip-tls-verify=true
 
       - name: Deploy to production
