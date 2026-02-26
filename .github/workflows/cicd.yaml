@@ -369,7 +369,7 @@ jobs:
 
       - name: Monitor deployment health
         run: |
-          APP_URL="https://payment-app-production.apps.itz-9i05h3.hub01-lb.techzone.ibm.com"
+          APP_URL="https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com"
           echo "Monitoring deployment for 60 seconds..."
           sleep 60
           for i in {1..5}; do
@@ -384,9 +384,9 @@ jobs:
         run: |
           echo "✅ Production deployment successful!"
           echo "🌐 Application URL: https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com"
-          echo "📦 Image: ${{ env.IMAGE_REGISTRY }}/payment-app-production/${{ env.IMAGE_NAME }}:latest"
+          echo "📦 Image: ${{ env.IMAGE_REGISTRY_PRODUCTION }}/payment-app-production/${{ env.IMAGE_NAME }}:latest"
           echo "🔍 Image Digest: ${{ needs.build-image-production.outputs.image-digest }}"
-          echo "📊 Health: https://payment-app-production.apps.itz-9i05h3.hub01-lb.techzone.ibm.com/actuator/health"
+          echo "📊 Health: https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com/actuator/health"
 
       - name: Rollback on failure
         if: failure()
@@ -406,7 +406,7 @@ jobs:
           body: |
             Production deployment successful
             - Commit: ${{ github.sha }}
-            - Image: ${{ env.IMAGE_REGISTRY }}/payment-app-production/${{ env.IMAGE_NAME }}:latest
+            - Image: ${{ env.IMAGE_REGISTRY_PRODUCTION }}/payment-app-production/${{ env.IMAGE_NAME }}:latest
             - Digest: ${{ needs.build-image-production.outputs.image-digest }}
             - URL: https://payment-app-production.apps.itz-anmwwn.hub01-lb.techzone.ibm.com
           draft: false
